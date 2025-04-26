@@ -19,7 +19,7 @@ selected_features = [
     "ghg_per_capita", "ghg_excluding_lucf_per_capita",
     "total_ghg", "total_ghg_excluding_lucf",
     "methane", "nitrous_oxide",
-    "co2", "co2_including_luc"
+    "co2"
 ]
 
 # --- PCA GROUPS ---
