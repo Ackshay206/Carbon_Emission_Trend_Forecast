@@ -8,11 +8,76 @@ from sklearn.preprocessing import MinMaxScaler
 from statsmodels.tsa.arima.model import ARIMA
 import functools
 import hashlib
+import torch.nn as nn
 
 # Cache for loaded data files to avoid redundant disk I/O
 _data_cache = {}
 
+class LSTMModel(nn.Module):
+    def __init__(self, input_size=1, hidden_size=64, num_layers=2, dropout=0.2):
+        super(LSTMModel, self).__init__()
+        self.lstm = nn.LSTM(
+            input_size=input_size,  # Input size is 1 since we only use past CO2 values
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+        self.dropout = nn.Dropout(dropout)
+        self.fc1 = nn.Linear(hidden_size, 64)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, 1)
+    
+    def forward(self, x):
+        # Forward pass through LSTM
+        lstm_out, _ = self.lstm(x)
+        
+        # Take the last time step output
+        out = lstm_out[:, -1, :]
+        
+        # Apply dropout and fully connected layers
+        out = self.dropout(out)
+        out = self.fc1(out)
+        out = self.relu(out)
+        out = self.fc2(out)
+        out = self.relu(out)
+        out = self.fc3(out)
+        
+        return out.squeeze()
 
+class GRUModel(nn.Module):
+    def __init__(self, input_size, hidden_size=64, num_layers=2, dropout=0.2):
+        super(GRUModel, self).__init__()
+        self.gru = nn.GRU(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+        self.dropout = nn.Dropout(dropout)
+        self.fc1 = nn.Linear(hidden_size, 64)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, 1)
+        
+    def forward(self, x):
+        # Forward pass through GRU
+        gru_out, _ = self.gru(x)
+        
+        # Take the last time step output
+        out = gru_out[:, -1, :]
+        
+        # Apply dropout and fully connected layers
+        out = self.dropout(out)
+        out = self.fc1(out)
+        out = self.relu(out)
+        out = self.fc2(out)
+        out = self.relu(out)
+        out = self.fc3(out)
+        
+        return out.squeeze()
 
 def get_data(data_path):
     """Load data from CSV file with caching"""
@@ -26,6 +91,8 @@ _model_cache = {}
 
 def load_model(model_choice, emission_choice, region_choice):
     """Load machine learning model with caching to avoid redundant disk I/O"""
+
+    
     # Create a cache key from the parameters
     cache_key = f"{model_choice}_{emission_choice}_{region_choice}"
     
@@ -65,7 +132,7 @@ def load_model(model_choice, emission_choice, region_choice):
         if model_choice in ["ARIMA", "ARIMA+LSTM"]:
             model = joblib.load(model_path)
         elif model_choice in ["LSTM", "GRU"]:
-            model = torch.load(model_path, map_location=torch.device('cuda'))
+            model = torch.load(model_path, map_location=torch.device('cpu'))
         else:
             raise ValueError(f"Model choice {model_choice} not recognized")
         

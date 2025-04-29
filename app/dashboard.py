@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utils import load_model, forecast_future
+from utils import load_model, forecast_future, LSTMModel,GRUModel
 import plotly.graph_objs as go
 import time
 import sys
@@ -43,6 +43,11 @@ st.markdown(f"""
     p, li {{
         color: {TEXT_COLOR};
     }}
+
+    h1 {{
+
+        font-family: Monaco, monospace !important;
+    }}   
     .stButton>button {{
         background-color: {SECONDARY_COLOR};
         color: white;
@@ -380,7 +385,9 @@ if generate_button or has_forecast:
         with st.spinner('Loading model and generating forecast...'):
             try:
                 start_time = time.time()
+
                 
+                            
                 # Load the selected model
                 model_data = load_model(model_choice, emission_choice, region_choice)
                 
