@@ -3,7 +3,7 @@ numpy
 scikit-learn
 statsmodels
 joblib
-torch==1.13.1
+torch
 matplotlib
 seaborn
 plotly
