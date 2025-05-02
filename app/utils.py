@@ -191,7 +191,7 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
         df = get_data(data_path)
     except FileNotFoundError:
         # Try alternative path format if the first one fails
-        data_path = f"../data/processed_data/{region_choice.replace(' ', '_')}.csv"
+        data_path = f"/data/processed_data/{region_choice.replace(' ', '_')}.csv"
         try:
             df = get_data(data_path)
         except FileNotFoundError:
