@@ -270,6 +270,22 @@ def navigate_to_statistics():
 def navigate_to_llm_integration():
     st.session_state.page = "LLM Integration"
 
+# Add API key settings to sidebar
+with st.sidebar:
+    st.markdown("### API Settings")
+    use_own_key = st.checkbox("Use my own OpenAI API key")
+    
+    if use_own_key:
+        user_api_key = st.text_input("OpenAI API Key", type="password")
+        if user_api_key:
+            st.success("API key provided!")
+            # Store in session state for persistence
+            st.session_state["user_api_key"] = user_api_key
+            # Add a note about security
+            st.info("Your API key is stored only in your current browser session.")
+        else:
+            st.warning("Please enter your API key")
+
 # Sidebar navigation
 with st.sidebar:
     st.markdown("### Navigation")

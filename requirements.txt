@@ -10,8 +10,5 @@ plotly
 streamlit
 openai
 python-dotenv
-pathlib
-warnings
-random
 itertools
 math

@@ -16,6 +16,19 @@ load_dotenv()
 # Cache for the data to avoid repeated loading
 _data_cache = {}
 
+def get_openai_client():
+    """Get OpenAI client using the appropriate API key"""
+    # First check if user provided their own key in session state
+    if "user_api_key" in st.session_state and st.session_state["user_api_key"]:
+        return openai.OpenAI(api_key=st.session_state["user_api_key"])
+    
+    # Next try to get from Streamlit secrets (for cloud deployment)
+    try:
+        return openai.OpenAI(api_key=st.secrets["openai"]["OPENAI_API_KEY"])
+    except:
+        # Finally fall back to environment variables
+        return openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 def find_project_data_directory():
     """Find the data directory relative to the current file location"""
     # Get the directory of the current script (utils.py)
@@ -57,20 +70,17 @@ def load_emissions_data():
     
     return _data_cache['emissions_df'].copy()
 # Configure OpenAI client
-# Try to get API key from Streamlit secrets first
-try:
-    openai_api_key = st.secrets["openai"]["OPENAI_API_KEY"]
-except:
-    # Fall back to environment variables
-    load_dotenv()
-    openai_api_key = os.getenv("OPENAI_API_KEY")
 
-client = openai.OpenAI(api_key=openai_api_key)
+
+
 
 def generate_policy_recommendations(region, reduction_target, target_year, forecast_data, metrics):
     """
     Generate policy recommendations using OpenAI API
     """
+
+    client = get_openai_client()
+
     # Get current emissions (start of forecast)
     latest_emission = forecast_data['Forecasted_CO2'].iloc[0]
     
@@ -96,7 +106,7 @@ def generate_policy_recommendations(region, reduction_target, target_year, forec
             'oil': region_data.get('oil_co2', 'N/A'),
             'gas': region_data.get('gas_co2', 'N/A'),
             'cement': region_data.get('cement_co2', 'N/A'),
-            'other_industry': region_data.get('other_industry_co2', 'N/A')
+            'trade': region_data.get('trade_co2', 'N/A')
         }
         
         # Calculate percentages
@@ -107,7 +117,7 @@ def generate_policy_recommendations(region, reduction_target, target_year, forec
                 'oil': (region_data.get('oil_co2', 0) / total_co2) * 100,
                 'gas': (region_data.get('gas_co2', 0) / total_co2) * 100,
                 'cement': (region_data.get('cement_co2', 0) / total_co2) * 100,
-                'other_industry': (region_data.get('other_industry_co2', 0) / total_co2) * 100
+                'trade': (region_data.get('trade_co2', 0) / total_co2) * 100
             }
         else:
             sector_percentages = {k: 'N/A' for k in sector_data.keys()}
@@ -127,27 +137,27 @@ def generate_policy_recommendations(region, reduction_target, target_year, forec
     - Required annual reduction rate: {annual_reduction_needed:.2f}%
     - Current projected trend: {metrics['avg_annual_pct_change']:.2f}% annual change
     
-    SECTOR BREAKDOWN:
+    SOURCE BREAKDOWN:
     - Coal: {sector_data['coal']} million tonnes CO2 ({sector_percentages['coal']:.1f}% of total)
     - Oil: {sector_data['oil']} million tonnes CO2 ({sector_percentages['oil']:.1f}% of total)
     - Gas: {sector_data['gas']} million tonnes CO2 ({sector_percentages['gas']:.1f}% of total)
     - Cement: {sector_data['cement']} million tonnes CO2 ({sector_percentages['cement']:.1f}% of total)
-    - Other Industry: {sector_data['other_industry']} million tonnes CO2 ({sector_percentages['other_industry']:.1f}% of total)
+    - Trade: {sector_data['trade']} million tonnes CO2 ({sector_percentages['trade']:.1f}% of total)
     
     Based on scientific research and successful emissions reduction strategies from around the world, provide:
     
     1. A comprehensive overview of the challenge specific to {region}'s emissions profile
-    2. Sector-specific recommendations with realistic implementation timelines:
-       - Electricity generation
-       - Transportation
-       - Industry
-       - Buildings
-       - Agriculture (if applicable)
+    2. Source-specific recommendations with realistic implementation timelines:
+       - coal
+       - oil
+       - gas
+       - cement
+       - trade
     3. Policy mechanisms to achieve the targets (carbon pricing, regulations, incentives)
     4. Economic implications and just transition considerations
     5. Monitoring and verification approaches
     
-    For each sector, include 3-5 specific policy actions with quantified potential impact. 
+    For each source, include 2-3 specific policy actions with quantified potential impact. 
     Provide concrete, actionable policies rather than general approaches. 
     Cite relevant examples from other regions where similar policies have succeeded.
     Format your response in clear, structured markdown with headers and bullet points.
@@ -253,6 +263,8 @@ def generate_forecast_summary(forecast_df, metrics, region, emission_type, model
     """
     Generate an AI summary of the forecast results
     """
+    client = get_openai_client()
+
     # Extract key forecast metrics
     latest_year = forecast_df['Year'].iloc[0]
     final_year = forecast_df['Year'].iloc[-1]
