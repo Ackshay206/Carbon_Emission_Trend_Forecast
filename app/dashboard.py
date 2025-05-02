@@ -6,6 +6,9 @@ import plotly.express as px
 import time
 import sys
 import os
+import os
+from datetime import datetime
+from llm_utils import generate_forecast_summary  # Added import for AI summary
 
 # Add parent directory to path to find the src module
 sys.path.append('..')
@@ -33,20 +36,15 @@ st.markdown(f"""
     .main .block-container {{
         padding-top: 2rem;
     }}
-    h1 {{
+    h1, h2, h3, h4, h5, h6 {{
         color: {PRIMARY_COLOR} !important;
         font-weight: 600;
-    }}
-    h2, h3 {{
-        color: {TEXT_COLOR};
-        font-weight: 500;
     }}
     p, li {{
         color: {TEXT_COLOR};
     }}
 
     h1 {{
-
         font-family: Monaco, monospace !important;
     }}   
     .stButton>button {{
@@ -116,6 +114,12 @@ st.markdown(f"""
         border: 1px solid #E0E0E0;
         background-color: {CARD_BG};
     }}
+    div[data-testid="stExpander"] h1, 
+    div[data-testid="stExpander"] h2, 
+    div[data-testid="stExpander"] h3, 
+    div[data-testid="stExpander"] h4 {{
+        color: {PRIMARY_COLOR} !important;
+    }}
     div[data-testid="stMetricValue"] {{
         color: {PRIMARY_COLOR};
         font-weight: 600;
@@ -126,7 +130,13 @@ st.markdown(f"""
         padding: 20px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         margin-bottom: 1rem;
-        color:{PRIMARY_COLOR}
+        color: {TEXT_COLOR};
+    }}
+    .content-card h1, 
+    .content-card h2, 
+    .content-card h3, 
+    .content-card h4 {{
+        color: {PRIMARY_COLOR} !important;
     }}
     .success-box {{
         padding: 10px 15px;
@@ -151,6 +161,9 @@ st.markdown(f"""
         margin: 20px 0;
         color: {TEXT_COLOR};
     }}
+    .tip-box strong {{
+        color: {PRIMARY_COLOR};
+    }}
     footer {{
         background-color: {CARD_BG};
         padding: 20px;
@@ -170,7 +183,7 @@ st.markdown(f"""
     .welcome-card h2 {{
         text-align: center;
         margin-bottom: 30px;
-        color: {PRIMARY_COLOR};
+        color: {PRIMARY_COLOR} !important;
     }}
     .welcome-card p {{
         font-size: 17px;
@@ -178,7 +191,7 @@ st.markdown(f"""
         color: {TEXT_COLOR};
     }}
     .welcome-card h3 {{
-        color: {TEXT_COLOR};
+        color: {PRIMARY_COLOR} !important;
     }}
     .welcome-card ol {{
         font-size: 16px;
@@ -191,13 +204,31 @@ st.markdown(f"""
         padding: 20px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         margin-bottom: 1.5rem;
-        color: {PRIMARY_COLOR}
+    }}
+    .settings-card h3 {{
+        color: {PRIMARY_COLOR} !important;
     }}
     .nav-button {{
         margin-bottom: 0.5rem;
         width: 100%;
     }}
+    /* Fix for markdown headings in AI-generated content */
+    .markdown-text h1, 
+    .markdown-text h2, 
+    .markdown-text h3, 
+    .markdown-text h4 {{
+        color: {PRIMARY_COLOR} !important;
+    }}
 
+    #policy-recommendations h1,
+    #policy-recommendations h2,
+    #policy-recommendations h3,
+    #policy-recommendations h4,
+    #policy-recommendations h5,
+    #policy-recommendations h6 {{
+        color: {PRIMARY_COLOR} !important;
+        font-weight: 600;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -219,6 +250,12 @@ def initialize_session_state():
         st.session_state.cached_forecast_results = None
     if 'last_execution_time' not in st.session_state:
         st.session_state.last_execution_time = None
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    if 'ai_summary' not in st.session_state:
+        st.session_state.ai_summary = None
+    if 'show_ai_summary' not in st.session_state:
+        st.session_state.show_ai_summary = False
 
 # Initialize session state
 initialize_session_state()
@@ -230,8 +267,8 @@ def navigate_to_forecasting():
 def navigate_to_statistics():
     st.session_state.page = "Statistics"
 
-def navigate_to_clustering():
-    st.session_state.page = "Clustering"
+def navigate_to_llm_integration():
+    st.session_state.page = "LLM Integration"
 
 # Sidebar navigation
 with st.sidebar:
@@ -248,10 +285,10 @@ with st.sidebar:
                  type="primary" if st.session_state.page == "Statistics" else "secondary"):
         navigate_to_statistics()
         
-    if st.button("📈 Clustering", key="nav_clustering", 
-                 use_container_width=True,
-                 type="primary" if st.session_state.page == "Clustering" else "secondary"):
-        navigate_to_clustering()
+    if st.button("🤖 Policy Recommendations", key="nav_llm", 
+         use_container_width=True,
+         type="primary" if st.session_state.page == "LLM Integration" else "secondary"):
+        navigate_to_llm_integration()
     
     # Display caching information if available
     if st.session_state.last_execution_time is not None:
@@ -273,6 +310,8 @@ with st.sidebar:
             st.session_state.last_forecast_years = None
             st.session_state.cached_forecast_results = None
             st.session_state.last_execution_time = None
+            st.session_state.ai_summary = None
+            st.session_state.show_ai_summary = False
             st.success("Cache cleared successfully!")
             st.experimental_rerun()
 
@@ -411,6 +450,8 @@ if st.session_state.page == "Forecasting":
                     st.session_state.last_emission_choice = emission_choice
                     st.session_state.last_region_choice = region_choice
                     st.session_state.last_forecast_years = years_to_forecast
+                    st.session_state.ai_summary = None  # Clear previous AI summary when new forecast is generated
+                    st.session_state.show_ai_summary = False
                     
                     st.markdown(f"""
                     <div class="success-box">
@@ -471,26 +512,66 @@ if st.session_state.page == "Forecasting":
             """, unsafe_allow_html=True)
         
         # Add interpretation of the forecast
-        st.markdown("""<h3 style="margin: 30px 0 15px 0;">💡 Forecast Interpretation</h3>""", unsafe_allow_html=True)
-        
-        # Create expandable section for interpretation
-        with st.expander("View Forecast Analysis", expanded=True):
-            # Provide a basic interpretation based on the metrics
-            if metrics['total_pct_change'] > 0:
-                trend_description = f"increasing trend with a total increase of {metrics['total_pct_change']:.2f}% over the forecast period"
-            elif metrics['total_pct_change'] < 0:
-                trend_description = f"decreasing trend with a total decrease of {abs(metrics['total_pct_change']):.2f}% over the forecast period"
+        interpretation_cols = st.columns([1, 3])
+        with interpretation_cols[0]:
+            st.markdown(f"""
+            <h3 style="margin: 30px 0 15px 0; color: {PRIMARY_COLOR};">💡 Forecast Interpretation</h3>
+            """, unsafe_allow_html=True)
+            # Add AI analysis button
+            if st.button("Generate AI Analysis", key="generate_ai_analysis", use_container_width=True):
+                with st.spinner("Generating AI forecast analysis..."):
+                    try:
+                        # Generate AI summary
+                        analysis = generate_forecast_summary(
+                            forecast_df, 
+                            metrics, 
+                            region_choice, 
+                            emission_choice, 
+                            model_choice
+                        )
+                        st.session_state.ai_summary = analysis
+                        st.session_state.show_ai_summary = True
+                    except Exception as e:
+                        st.error(f"Error generating AI analysis: {str(e)}")
+
+        with interpretation_cols[1]:
+            # Check if we should show AI summary
+            if st.session_state.show_ai_summary and st.session_state.ai_summary:
+                # Create expandable section for AI interpretation
+                with st.expander("View AI Analysis", expanded=True):
+                    # Wrap the markdown content in a div with a class we can target with CSS
+                    st.markdown(f"""
+                    <div class="markdown-text">
+                    {st.session_state.ai_summary}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button("Download Analysis", key="download_analysis"):
+                        st.download_button(
+                            label="Download Analysis as Markdown",
+                            data=st.session_state.ai_summary,
+                            file_name=f"{region_choice}_{emission_choice}_forecast_analysis.md",
+                            mime="text/markdown",
+                        )
             else:
-                trend_description = "relatively stable trend over the forecast period"
-            
-            st.write(f"The forecast shows a {trend_description}. The average annual percentage change is {metrics['avg_annual_pct_change']:.2f}%.")
-            
-            if model_choice == "ARIMA":
-                st.write("This forecast was generated using an ARIMA model, which is effective at capturing time series patterns and seasonality in the data.")
-            elif model_choice == "ARIMA+LSTM":
-                st.write("This forecast combines the strengths of both ARIMA (for trend and seasonality) and neural networks (for complex patterns).")
-            elif model_choice in ["LSTM", "GRU"]:
-                st.write(f"This forecast was generated using a {model_choice} neural network, which excels at learning complex patterns in time series data.")
+                # Create expandable section for basic interpretation
+                with st.expander("View Basic Analysis", expanded=True):
+                    # Provide a basic interpretation based on the metrics
+                    if metrics['total_pct_change'] > 0:
+                        trend_description = f"increasing trend with a total increase of {metrics['total_pct_change']:.2f}% over the forecast period"
+                    elif metrics['total_pct_change'] < 0:
+                        trend_description = f"decreasing trend with a total decrease of {abs(metrics['total_pct_change']):.2f}% over the forecast period"
+                    else:
+                        trend_description = "relatively stable trend over the forecast period"
+                    
+                    st.write(f"The forecast shows a {trend_description}. The average annual percentage change is {metrics['avg_annual_pct_change']:.2f}%.")
+                    
+                    if model_choice == "ARIMA":
+                        st.write("This forecast was generated using an ARIMA model, which is effective at capturing time series patterns and seasonality in the data.")
+                    elif model_choice == "ARIMA+LSTM":
+                        st.write("This forecast combines the strengths of both ARIMA (for trend and seasonality) and neural networks (for complex patterns).")
+                    elif model_choice in ["LSTM", "GRU"]:
+                        st.write(f"This forecast was generated using a {model_choice} neural network, which excels at learning complex patterns in time series data.")
         
         # 2. DISPLAY VISUALIZATION NEXT
         st.markdown("""
@@ -982,205 +1063,215 @@ elif st.session_state.page == "Statistics":
     
     with stats_tabs[2]:
         st.markdown("""
-    <div class="content-card">
-        <h2>CO₂ Emissions by Source</h2>
-        <p>Visualize the breakdown of carbon dioxide emissions by source for different countries and years.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Create a two-column layout for settings
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Country selection
-        breakdown_country = st.selectbox(
-            "Select Country/Region",
-            ["World", "China", "United States", "India", "Russia", "Japan", 
-             "Germany", "United Kingdom", "Brazil", "Canada", "Australia"],
-            index=0
-        )
-    
-    with col2:
-        # Year selection with a slider
-        available_years = list(range(1990, 2024))
-        breakdown_year = st.slider(
-            "Select Year",
-            min_value=min(available_years),
-            max_value=max(available_years),
-            value=2023,
-            key="source_breakdown_year_slider"
-        )
-    
-    try:
-        # Load the data (using the cached function)
-        emissions_df = load_emission_data()
+        <div class="content-card">
+            <h2>CO₂ Emissions by Source</h2>
+            <p>Visualize the breakdown of carbon dioxide emissions by source for different countries and years.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Define source columns and corresponding labels
-        source_columns = ["coal_co2", "oil_co2", "gas_co2", "cement_co2", "flaring_co2", "other_industry_co2"]
-        source_labels = ["Coal", "Oil", "Gas", "Cement", "Flaring", "Other Industry"]
+        # Create a two-column layout for settings
+        col1, col2 = st.columns(2)
         
-        # Filter for the selected country and year
-        country_data = emissions_df[
-            (emissions_df["country"] == breakdown_country) & 
-            (emissions_df["year"] == breakdown_year)
-        ]
+        with col1:
+            # Country selection
+            breakdown_country = st.selectbox(
+                "Select Country/Region",
+                ["World", "China", "United States", "India", "Russia", "Japan", 
+                 "Germany", "United Kingdom", "Brazil", "Canada", "Australia"],
+                index=0
+            )
         
-        if not country_data.empty:
-            # Extract values for each source
-            values = []
-            labels = []
+        with col2:
+            # Year selection with a slider
+            available_years = list(range(1990, 2024))
+            breakdown_year = st.slider(
+                "Select Year",
+                min_value=min(available_years),
+                max_value=max(available_years),
+                value=2023,
+                key="source_breakdown_year_slider"
+            )
+        
+        try:
+            # Load the data (using the cached function)
+            emissions_df = load_emission_data()
             
-            for col, label in zip(source_columns, source_labels):
-                if col in country_data.columns and not country_data[col].isna().all():
-                    value = country_data[col].values[0]
-                    if not pd.isna(value) and value > 0:
-                        values.append(value)
-                        labels.append(label)
+            # Define source columns and corresponding labels
+            source_columns = ["coal_co2", "oil_co2", "gas_co2", "cement_co2", "flaring_co2", "other_industry_co2"]
+            source_labels = ["Coal", "Oil", "Gas", "Cement", "Flaring", "Other Industry"]
             
-            if values:
-                import plotly.graph_objs as go
+            # Filter for the selected country and year
+            country_data = emissions_df[
+                (emissions_df["country"] == breakdown_country) & 
+                (emissions_df["year"] == breakdown_year)
+            ]
+            
+            if not country_data.empty:
+                # Extract values for each source
+                values = []
+                labels = []
                 
-                # Create a stylish donut chart
-                fig = go.Figure()
+                for col, label in zip(source_columns, source_labels):
+                    if col in country_data.columns and not country_data[col].isna().all():
+                        value = country_data[col].values[0]
+                        if not pd.isna(value) and value > 0:
+                            values.append(value)
+                            labels.append(label)
                 
-                # Custom color palette - environmental theme
-                colors = ['#1A5E63', '#028090', '#00A896', '#02C39A', '#F0F3BD', '#96C0B7']
-                
-                # Add pie chart with custom styling
-                fig.add_trace(go.Pie(
-                    labels=labels,
-                    values=values,
-                    textposition='inside',
-                    textinfo='percent+label',
-                    insidetextfont=dict(color='white', size=14, family='Arial, sans-serif'),
-                    hoverinfo='label+percent+value',
-                    textfont=dict(size=14, family='Arial, sans-serif'),
-                    marker=dict(
-                        colors=colors[:len(labels)],
-                        line=dict(color='white', width=2)
-                    ),
-                    hole=0.3,  # Create a donut chart effect
-                    rotation=90  # Start from the top
-                ))
-                
-                # Add title with custom styling
-                fig.update_layout(
-                    title={
-                        'text': f"{breakdown_country} CO₂ Emissions by Source ({breakdown_year})",
-                        'y': 0.95,
-                        'x': 0.5,
-                        'xanchor': 'center',
-                        'yanchor': 'top',
-                        'font': dict(
-                            size=22,
-                            color=PRIMARY_COLOR,
-                            family='Arial, sans-serif'
-                        )
-                    },
-                    legend=dict(
-                        orientation="h",
-                        yanchor="bottom",
-                        y=-0.1,
-                        xanchor="center",
-                        x=0.5,
-                        font=dict(
-                            size=12,
-                            color=TEXT_COLOR
-                        )
-                    ),
-                    height=600,
-                    margin=dict(l=50, r=50, t=100, b=50),
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)'
-                )
-                
-                # Configure interactive features
-                config = {
-                    'scrollZoom': True,
-                    'displayModeBar': True,
-                    'editable': True,
-                    'toImageButtonOptions': {
-                        'format': 'png',
-                        'filename': f'{breakdown_country}_emissions_by_source_{breakdown_year}',
-                        'height': 600,
-                        'width': 1000,
-                        'scale': 2
-                    }
-                }
-                
-                # Display the chart
-                st.plotly_chart(fig, use_container_width=True, config=config)
-                
-                # Display the data table
-                st.markdown("""
-                <div class="content-card" style="margin-top: 20px;">
-                    <h3>Source Data</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Create a DataFrame for display
-                source_df = pd.DataFrame({
-                    'Source': labels,
-                    'Emissions (million tonnes)': values,
-                    'Percentage': [v/sum(values)*100 for v in values]
-                })
-                
-                # Format the percentage column
-                source_df['Percentage'] = source_df['Percentage'].apply(lambda x: f"{x:.2f}%")
-                
-                # Display the table
-                st.dataframe(
-                    source_df,
-                    hide_index=True,
-                    use_container_width=True
-                )
-                
-                # Add insights about the breakdown
-                st.markdown("""
-                <div class="content-card" style="margin-top: 20px;">
-                    <h3>💡 Source Analysis</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                with st.expander("View Source Analysis", expanded=True):
-                    # Identify the main contributor
-                    max_idx = values.index(max(values))
-                    max_source = labels[max_idx]
-                    max_percent = source_df['Percentage'][max_idx]
+                if values:
+                    import plotly.graph_objs as go
                     
-                    st.markdown(f"""
-                    <div class="tip-box">
-                        <strong>Key Insight:</strong> The largest source of CO₂ emissions in {breakdown_country} during {breakdown_year} was <strong>{max_source}</strong>, 
-                        accounting for {max_percent} of total emissions from fossil fuels and industry.
+                    # Create a stylish donut chart
+                    fig = go.Figure()
+                    
+                    # Custom color palette - environmental theme
+                    colors = ['#1A5E63', '#028090', '#00A896', '#02C39A', '#F0F3BD', '#96C0B7']
+                    
+                    # Add pie chart with custom styling
+                    fig.add_trace(go.Pie(
+                        labels=labels,
+                        values=values,
+                        textposition='inside',
+                        textinfo='percent+label',
+                        insidetextfont=dict(color='white', size=14, family='Arial, sans-serif'),
+                        hoverinfo='label+percent+value',
+                        textfont=dict(size=14, family='Arial, sans-serif'),
+                        marker=dict(
+                            colors=colors[:len(labels)],
+                            line=dict(color='white', width=2)
+                        ),
+                        hole=0.3,  # Create a donut chart effect
+                        rotation=90  # Start from the top
+                    ))
+                    
+                    # Add title with custom styling
+                    fig.update_layout(
+                        title={
+                            'text': f"{breakdown_country} CO₂ Emissions by Source ({breakdown_year})",
+                            'y': 0.95,
+                            'x': 0.5,
+                            'xanchor': 'center',
+                            'yanchor': 'top',
+                            'font': dict(
+                                size=22,
+                                color=PRIMARY_COLOR,
+                                family='Arial, sans-serif'
+                            )
+                        },
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom",
+                            y=-0.1,
+                            xanchor="center",
+                            x=0.5,
+                            font=dict(
+                                size=12,
+                                color=TEXT_COLOR
+                            )
+                        ),
+                        height=600,
+                        margin=dict(l=50, r=50, t=100, b=50),
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)'
+                    )
+                    
+                    # Configure interactive features
+                    config = {
+                        'scrollZoom': True,
+                        'displayModeBar': True,
+                        'editable': True,
+                        'toImageButtonOptions': {
+                            'format': 'png',
+                            'filename': f'{breakdown_country}_emissions_by_source_{breakdown_year}',
+                            'height': 600,
+                            'width': 1000,
+                            'scale': 2
+                        }
+                    }
+                    
+                    # Display the chart
+                    st.plotly_chart(fig, use_container_width=True, config=config)
+                    
+                    # Display the data table
+                    st.markdown("""
+                    <div class="content-card" style="margin-top: 20px;">
+                        <h3>Source Data</h3>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Calculate total emissions
-                    total_emissions = sum(values)
-                    st.write(f"Total CO₂ emissions from all sources: {total_emissions:.2f} million tonnes.")
+                    # Create a DataFrame for display
+                    source_df = pd.DataFrame({
+                        'Source': labels,
+                        'Emissions (million tonnes)': values,
+                        'Percentage': [v/sum(values)*100 for v in values]
+                    })
                     
-                    # Add comparison to typical patterns if World is selected
-                    if breakdown_country == "World":
-                        st.write(f"Globally, fossil fuels (coal, oil, and gas) remain the dominant sources of CO₂ emissions, with industrial processes like cement production contributing a smaller portion.")
+                    # Format the percentage column
+                    source_df['Percentage'] = source_df['Percentage'].apply(lambda x: f"{x:.2f}%")
                     
-                    # Add specific analysis based on the country
-                    if "coal_co2" in country_data.columns and "gas_co2" in country_data.columns:
-                        coal_value = country_data["coal_co2"].values[0] if not pd.isna(country_data["coal_co2"].values[0]) else 0
-                        gas_value = country_data["gas_co2"].values[0] if not pd.isna(country_data["gas_co2"].values[0]) else 0
+                    # Display the table
+                    st.dataframe(
+                        source_df,
+                        hide_index=True,
+                        use_container_width=True
+                    )
+                    
+                    # Add insights about the breakdown
+                    st.markdown("""
+                    <div class="content-card" style="margin-top: 20px;">
+                        <h3>💡 Source Analysis</h3>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    with st.expander("View Source Analysis", expanded=True):
+                        # Identify the main contributor
+                        max_idx = values.index(max(values))
+                        max_source = labels[max_idx]
+                        max_percent = source_df['Percentage'][max_idx]
                         
-                        if coal_value > gas_value:
-                            ratio = coal_value / gas_value if gas_value > 0 else float('inf')
-                            if ratio != float('inf'):
-                                st.write(f"Coal emissions are approximately {ratio:.1f}x higher than natural gas emissions in {breakdown_country}.")
-                        else:
-                            ratio = gas_value / coal_value if coal_value > 0 else float('inf')
-                            if ratio != float('inf'):
-                                st.write(f"Natural gas emissions are approximately {ratio:.1f}x higher than coal emissions in {breakdown_country}.")
+                        st.markdown(f"""
+                        <div class="tip-box">
+                            <strong>Key Insight:</strong> The largest source of CO₂ emissions in {breakdown_country} during {breakdown_year} was <strong>{max_source}</strong>, 
+                            accounting for {max_percent} of total emissions from fossil fuels and industry.
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Calculate total emissions
+                        total_emissions = sum(values)
+                        st.write(f"Total CO₂ emissions from all sources: {total_emissions:.2f} million tonnes.")
+                        
+                        # Add comparison to typical patterns if World is selected
+                        if breakdown_country == "World":
+                            st.write(f"Globally, fossil fuels (coal, oil, and gas) remain the dominant sources of CO₂ emissions, with industrial processes like cement production contributing a smaller portion.")
+                        
+                        # Add specific analysis based on the country
+                        if "coal_co2" in country_data.columns and "gas_co2" in country_data.columns:
+                            coal_value = country_data["coal_co2"].values[0] if not pd.isna(country_data["coal_co2"].values[0]) else 0
+                            gas_value = country_data["gas_co2"].values[0] if not pd.isna(country_data["gas_co2"].values[0]) else 0
+                            
+                            if coal_value > gas_value:
+                                ratio = coal_value / gas_value if gas_value > 0 else float('inf')
+                                if ratio != float('inf'):
+                                    st.write(f"Coal emissions are approximately {ratio:.1f}x higher than natural gas emissions in {breakdown_country}.")
+                            else:
+                                ratio = gas_value / coal_value if coal_value > 0 else float('inf')
+                                if ratio != float('inf'):
+                                    st.write(f"Natural gas emissions are approximately {ratio:.1f}x higher than coal emissions in {breakdown_country}.")
+                else:
+                    st.warning(f"No source breakdown data available for {breakdown_country} in {breakdown_year}")
             else:
-                st.warning(f"No source breakdown data available for {breakdown_country} in {breakdown_year}")
-        else:
-            st.warning(f"No data available for {breakdown_country} in {breakdown_year}")
-    
+                st.warning(f"No data available for {breakdown_country} in {breakdown_year}")
+        
+        except Exception as e:
+            st.error(f"An error occurred during source breakdown analysis: {str(e)}")
+            st.info("Please check that the data file contains the required source breakdown columns.")
+
+# Add the LLM Integration page
+elif st.session_state.page == "LLM Integration":
+    # Import and display the LLM page
+    try:
+        from llm_integration import display_llm_page
+        display_llm_page()
     except Exception as e:
-        st.error(f"An error occurred during source breakdown analysis: {str(e)}")
-        st.info("Please check that the data file contains the required source breakdown columns.")
+        st.error(f"Error loading the Policy Recommendations page: {str(e)}")
+        st.info("Make sure you've added the llm_integration.py and llm_utils.py files to your project.")
