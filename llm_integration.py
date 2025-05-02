@@ -41,7 +41,7 @@ def display_llm_page():
     with col1:
         target_region = st.selectbox(
             "Region",
-            ["World", "United States", "China", "European Union", "India"],
+            ["World", "United_States"],
             index=1
         )
     
@@ -68,13 +68,9 @@ def display_llm_page():
         with st.spinner('Analyzing emissions data and generating evidence-based recommendations...'):
             try:
                 # 1. Get historical and forecasted data for the region
-                model_choice = "LSTM"  # Use the most accurate model for your case
+                model_choice = "ARIMA"  # Use the most accurate model for your case
                 emission_choice = "CO2"
-                region_choice = target_region.replace(" ", "").lower()
-                
-                # Fix for United States vs. World naming differences in your code
-                if region_choice == "unitedstates":
-                    region_choice = "united states"
+                region_choice = target_region
                 
                 # Load model and generate forecast
                 try:
