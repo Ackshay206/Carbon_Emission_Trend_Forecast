@@ -186,12 +186,12 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
     print(f"Attempting to load data from: {os.path.abspath(data_path)}")
     try:
         # Use the caching function to get data
-        df = get_data(data_path)
+        df = pd.read_csv(data_path)
     except FileNotFoundError:
         # Try alternative path format if the first one fails
-        data_path = f"/data/processed_data/{region_choice.replace(' ', '_')}.csv"
+        data_path = os.path.join("data","processed_data",file_name)
         try:
-            df = get_data(data_path)
+            df = pd.read_csv(data_path)
         except FileNotFoundError:
             raise FileNotFoundError(f"Could not find data file for {region_choice}. Tried paths: {os.path.abspath(data_path)} "
                                f"..\\data\\processed_data\\{region_choice.replace(' ', '_')}.csv and "
