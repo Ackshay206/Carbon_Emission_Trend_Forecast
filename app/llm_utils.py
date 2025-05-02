@@ -9,6 +9,7 @@ import re
 import openai
 import os
 from dotenv import load_dotenv
+import streamlit as st
 
 load_dotenv()
 
@@ -56,7 +57,15 @@ def load_emissions_data():
     
     return _data_cache['emissions_df'].copy()
 # Configure OpenAI client
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Try to get API key from Streamlit secrets first
+try:
+    openai_api_key = st.secrets["openai"]["OPENAI_API_KEY"]
+except:
+    # Fall back to environment variables
+    load_dotenv()
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+
+client = openai.OpenAI(api_key=openai_api_key)
 
 def generate_policy_recommendations(region, reduction_target, target_year, forecast_data, metrics):
     """
