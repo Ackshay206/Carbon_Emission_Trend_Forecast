@@ -178,7 +178,7 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
     
     # Set the file name based on region
     if region_choice == "United states":
-        file_name = "us.csv"
+        file_name = "US.csv"
     else:
         file_name = "World.csv"
     
