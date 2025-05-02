@@ -152,15 +152,13 @@ def find_project_data_directory():
     # Get the directory of the current script (utils.py)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Go up one level to the app directory's parent (should be the project root)
-    project_root = os.path.dirname(current_dir)
     
     # Construct the path to the data directory
-    data_dir = os.path.join(project_root, "data", "processed_data")
+    data_dir = os.path.join(current_dir, "data", "processed_data")
     
     # Print for debugging
-    print(f"Current script directory: {current_dir}")
-    print(f"Project root directory: {project_root}")
+
+    print(f"Project root directory: {current_dir}")
     print(f"Data directory: {data_dir}")
     
     return data_dir

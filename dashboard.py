@@ -721,8 +721,7 @@ elif st.session_state.page == "Statistics":
             
             # Try to find the data directory relative to the current file
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(current_dir)
-            data_path = os.path.join(project_root, "data", "raw_data", "owid-co2-data.csv")
+            data_path = os.path.join(current_dir, "data", "raw_data", "owid-co2-data.csv")
             
             try:
                 df = pd.read_csv(data_path)
