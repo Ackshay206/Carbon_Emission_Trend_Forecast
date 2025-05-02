@@ -92,9 +92,14 @@ def display_llm_page():
                         'Forecasted_CO2': [10000 * (1.012 ** i) for i in range(target_year - datetime.now().year + 1)]
                     })
                 
+                if target_region == "United states":
+
+                    region = "United States"
+                else: 
+                    region = "World"
                 # 2. Generate recommendations based on the forecast
                 recommendations, trajectories = generate_policy_recommendations(
-                    target_region,
+                    region,
                     reduction_target,
                     target_year,
                     forecast_df,
