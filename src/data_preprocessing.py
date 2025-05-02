@@ -5,8 +5,8 @@ from sklearn.decomposition import PCA
 import os
 
 # --- PATHS ---
-raw_path = r"C:\Users\acksh\OneDrive\Desktop\MSAI\Machine Learning\Final_project\data\raw_data\databycountry\United_states.csv"
-save_path = r"C:\Users\acksh\OneDrive\Desktop\MSAI\Machine Learning\Final_project\data\processed_data\United_states.csv"
+raw_path = r"..\data\raw_data\databycountry\United_states.csv"
+save_path = r"..\data\processed_data\United_states.csv"
 
 # --- SELECTED FEATURES ---
 selected_features = [
