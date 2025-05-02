@@ -233,7 +233,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Add caching for session state initialization
-@st.cache_resource
+
 def initialize_session_state():
     """Initialize session state variables if they don't exist"""
     if 'page' not in st.session_state:

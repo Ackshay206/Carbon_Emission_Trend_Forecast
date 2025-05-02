@@ -96,7 +96,7 @@ def generate_policy_recommendations(region, reduction_target, target_year, forec
     try:
         emissions_df = load_emissions_data()
 
-        print(emissions_df.head())
+
         # Get the latest year data for the region
         region_data = emissions_df[emissions_df['country'] == region].sort_values('year', ascending=False).iloc[0]
         
