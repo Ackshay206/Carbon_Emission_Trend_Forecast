@@ -1,0 +1,17 @@
+pandas
+numpy
+scikit-learn
+statsmodels
+joblib
+torch
+matplotlib
+seaborn
+plotly
+streamlit
+openai
+python-dotenv
+pathlib
+warnings
+random
+itertools
+math
