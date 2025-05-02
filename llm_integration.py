@@ -41,7 +41,7 @@ def display_llm_page():
     with col1:
         target_region = st.selectbox(
             "Region",
-            ["World", "United_States"],
+            ["World", "United states"],
             index=1
         )
     
