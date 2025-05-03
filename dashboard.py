@@ -229,6 +229,42 @@ st.markdown(f"""
         color: {PRIMARY_COLOR} !important;
         font-weight: 600;
     }}
+
+    .markdown-text {{
+        color: {TEXT_COLOR} !important;
+    }}
+    
+    .markdown-text h1, 
+    .markdown-text h2, 
+    .markdown-text h3, 
+    .markdown-text h4 {{
+        color: {PRIMARY_COLOR} !important;
+    }}
+    
+    .markdown-text p {{
+        color: {TEXT_COLOR} !important;
+    }}
+    
+    .markdown-text ul, 
+    .markdown-text ol, 
+    .markdown-text li {{
+        color: {TEXT_COLOR} !important;
+    }}
+    
+    /* Fix for expander content */
+    div[data-testid="stExpander"] .markdown-text {{
+        color: {TEXT_COLOR} !important;
+    }}
+    
+    div[data-testid="stExpander"] p {{
+        color: {TEXT_COLOR} !important;
+    }}
+    
+    div[data-testid="stExpander"] ul,
+    div[data-testid="stExpander"] ol,
+    div[data-testid="stExpander"] li {{
+        color: {TEXT_COLOR} !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -242,6 +278,17 @@ def initialize_session_state():
         st.session_state.ai_summary = None
     if 'show_ai_summary' not in st.session_state:
         st.session_state.show_ai_summary = False
+    # Add forecast-related session state variables
+    if 'forecast_generated' not in st.session_state:
+        st.session_state.forecast_generated = False
+    if 'forecast_df' not in st.session_state:
+        st.session_state.forecast_df = None
+    if 'forecast_fig' not in st.session_state:
+        st.session_state.forecast_fig = None
+    if 'forecast_metrics' not in st.session_state:
+        st.session_state.forecast_metrics = None
+    if 'forecast_settings' not in st.session_state:
+        st.session_state.forecast_settings = {}
 
 # Initialize session state
 initialize_session_state()
@@ -343,7 +390,7 @@ if st.session_state.page == "Forecasting":
         
         generate_button = st.button("Generate Forecast", use_container_width=True)
     
-    # Handle forecast generation
+    # Handle forecast generation (when button is clicked)
     if generate_button:
         with st.spinner('Loading model and generating forecast...'):
             try:
@@ -360,7 +407,18 @@ if st.session_state.page == "Forecasting":
                 # Calculate execution time
                 execution_time = time.time() - start_time
                 
-                st.session_state.ai_summary = None  # Clear previous AI summary when new forecast is generated
+                # Store results in session state
+                st.session_state.forecast_generated = True
+                st.session_state.forecast_df = forecast_df
+                st.session_state.forecast_fig = forecast_fig
+                st.session_state.forecast_metrics = metrics
+                st.session_state.forecast_settings = {
+                    'model_choice': model_choice,
+                    'emission_choice': emission_choice,
+                    'region_choice': region_choice,
+                    'years_to_forecast': years_to_forecast
+                }
+                st.session_state.ai_summary = None  # Clear previous AI summary
                 st.session_state.show_ai_summary = False
                 
                 st.markdown(f"""
@@ -369,158 +427,166 @@ if st.session_state.page == "Forecasting":
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Display the forecast header
-                st.markdown(f"""
-                <div class="content-card">
-                    <h2>Forecasted {emission_choice} Emissions for {region_choice}</h2>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Display metrics
-                st.markdown("""
-                <div class="content-card">
-                    <h3>Summary Metrics</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                metric_cols = st.columns(4)
-                with metric_cols[0]:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-value">{metrics['avg_annual_pct_change']:.2f}%</div>
-                        <div class="metric-label">Average Annual % Change</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with metric_cols[1]:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-value">{metrics['total_pct_change']:.2f}%</div>
-                        <div class="metric-label">Total % Change</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with metric_cols[2]:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-value">{metrics['min_annual_pct_change']:.2f}%</div>
-                        <div class="metric-label">Min Annual % Change</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with metric_cols[3]:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-value">{metrics['max_annual_pct_change']:.2f}%</div>
-                        <div class="metric-label">Max Annual % Change</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # Add interpretation
-                interpretation_cols = st.columns([1, 3])
-                with interpretation_cols[0]:
-                    st.markdown(f"""
-                    <h3 style="margin: 30px 0 15px 0; color: {PRIMARY_COLOR};">💡 Forecast Interpretation</h3>
-                    """, unsafe_allow_html=True)
-                    if st.button("Generate AI Analysis", key="generate_ai_analysis", use_container_width=True):
-                        with st.spinner("Generating AI forecast analysis..."):
-                            try:
-                                analysis = generate_forecast_summary(
-                                    forecast_df, 
-                                    metrics, 
-                                    region_choice, 
-                                    emission_choice, 
-                                    model_choice
-                                )
-                                st.session_state.ai_summary = analysis
-                                st.session_state.show_ai_summary = True
-                            except Exception as e:
-                                st.error(f"Error generating AI analysis: {str(e)}")
-
-                with interpretation_cols[1]:
-                    if st.session_state.show_ai_summary and st.session_state.ai_summary:
-                        with st.expander("View AI Analysis", expanded=True):
-                            st.markdown(f"""
-                            <div class="markdown-text">
-                            {st.session_state.ai_summary}
-                            </div>
-                            """, unsafe_allow_html=True)
-                    else:
-                        with st.expander("View Basic Analysis", expanded=True):
-                            if metrics['total_pct_change'] > 0:
-                                trend_description = f"increasing trend with a total increase of {metrics['total_pct_change']:.2f}% over the forecast period"
-                            elif metrics['total_pct_change'] < 0:
-                                trend_description = f"decreasing trend with a total decrease of {abs(metrics['total_pct_change']):.2f}% over the forecast period"
-                            else:
-                                trend_description = "relatively stable trend over the forecast period"
-                            
-                            st.write(f"The forecast shows a {trend_description}. The average annual percentage change is {metrics['avg_annual_pct_change']:.2f}%.")
-                
-                # Display visualization
-                st.markdown("""
-                <div class="content-card" style="margin-top: 30px;">
-                    <h3>Visualization</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                forecast_fig.update_layout(
-                    height=600,
-                    width=None,
-                    hovermode="x unified",
-                    legend=dict(
-                        orientation="h",
-                        yanchor="bottom",
-                        y=1.02,
-                        xanchor="right",
-                        x=1
-                    )
-                )
-                
-                config = {
-                    'scrollZoom': True,
-                    'displayModeBar': True,
-                    'editable': True,
-                    'toImageButtonOptions': {
-                        'format': 'png',
-                        'filename': f'{region_choice}_{emission_choice}_forecast',
-                        'height': 600,
-                        'width': 1200,
-                        'scale': 2
-                    }
-                }
-                
-                st.plotly_chart(forecast_fig, use_container_width=True, config=config)
-                
-                # Display data table
-                st.markdown("""
-                <div class="content-card" style="margin-top: 30px;">
-                    <h3>Forecast Data</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                yearly_data = pd.DataFrame({
-                    'Year': forecast_df['Year'].astype(int),
-                    f'Forecasted {emission_choice}': forecast_df['Forecasted_CO2'].round(2),
-                    'Annual % Change': forecast_df['pct_change'].round(2).apply(lambda x: f"{x}%" if not pd.isna(x) else "N/A"),
-                    'Cumulative % Change': forecast_df['pct_change_from_last_historical'].round(2).apply(lambda x: f"{x}%")
-                })
-                
-                st.dataframe(
-                    yearly_data,
-                    column_config={
-                        'Year': st.column_config.NumberColumn("Year", format="%d"),
-                        f'Forecasted {emission_choice}': st.column_config.NumberColumn(f"Forecasted {emission_choice}", format="%.2f"),
-                        'Annual % Change': st.column_config.TextColumn("Annual % Change"),
-                        'Cumulative % Change': st.column_config.TextColumn("Cumulative % Change")
-                    },
-                    hide_index=True,
-                    use_container_width=True,
-                    height=400
-                )
-                
             except Exception as e:
                 st.error(f"An error occurred during forecasting: {str(e)}")
                 st.info("Please check that the required model files exist and the data paths are correct.")
+
+    # Display forecast results if they exist in session state
+    if st.session_state.forecast_generated:
+        # Access stored data from session state
+        forecast_df = st.session_state.forecast_df
+        forecast_fig = st.session_state.forecast_fig
+        metrics = st.session_state.forecast_metrics
+        settings = st.session_state.forecast_settings
+        
+        # Display the forecast header
+        st.markdown(f"""
+        <div class="content-card">
+            <h2>Forecasted {settings['emission_choice']} Emissions for {settings['region_choice']}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Display metrics
+        st.markdown("""
+        <div class="content-card">
+            <h3>Summary Metrics</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        metric_cols = st.columns(4)
+        with metric_cols[0]:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{metrics['avg_annual_pct_change']:.2f}%</div>
+                <div class="metric-label">Average Annual % Change</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with metric_cols[1]:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{metrics['total_pct_change']:.2f}%</div>
+                <div class="metric-label">Total % Change</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with metric_cols[2]:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{metrics['min_annual_pct_change']:.2f}%</div>
+                <div class="metric-label">Min Annual % Change</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with metric_cols[3]:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-value">{metrics['max_annual_pct_change']:.2f}%</div>
+                <div class="metric-label">Max Annual % Change</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Add interpretation
+        interpretation_cols = st.columns([1, 3])
+        with interpretation_cols[0]:
+            st.markdown(f"""
+            <h3 style="margin: 30px 0 15px 0; color: {PRIMARY_COLOR};">💡 Forecast Interpretation</h3>
+            """, unsafe_allow_html=True)
+            if st.button("Generate AI Analysis", key="generate_ai_analysis", use_container_width=True):
+                with st.spinner("Generating AI forecast analysis..."):
+                    try:
+                        analysis = generate_forecast_summary(
+                            st.session_state.forecast_df, 
+                            st.session_state.forecast_metrics, 
+                            st.session_state.forecast_settings['region_choice'], 
+                            st.session_state.forecast_settings['emission_choice'], 
+                            st.session_state.forecast_settings['model_choice']
+                        )
+                        st.session_state.ai_summary = analysis
+                        st.session_state.show_ai_summary = True
+                    except Exception as e:
+                        st.error(f"Error generating AI analysis: {str(e)}")
+
+        with interpretation_cols[1]:
+            if st.session_state.show_ai_summary and st.session_state.ai_summary:
+                with st.expander("View AI Analysis", expanded=True):
+                    st.markdown(f"""
+                    <div class="markdown-text style="color: {TEXT_COLOR} !important;">
+                    {st.session_state.ai_summary}
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                with st.expander("View Basic Analysis", expanded=True):
+                    if metrics['total_pct_change'] > 0:
+                        trend_description = f"increasing trend with a total increase of {metrics['total_pct_change']:.2f}% over the forecast period"
+                    elif metrics['total_pct_change'] < 0:
+                        trend_description = f"decreasing trend with a total decrease of {abs(metrics['total_pct_change']):.2f}% over the forecast period"
+                    else:
+                        trend_description = "relatively stable trend over the forecast period"
+                    
+                    st.write(f"The forecast shows a {trend_description}. The average annual percentage change is {metrics['avg_annual_pct_change']:.2f}%.")
+        
+        # Display visualization
+        st.markdown("""
+        <div class="content-card" style="margin-top: 30px;">
+            <h3>Visualization</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        forecast_fig.update_layout(
+            height=600,
+            width=None,
+            hovermode="x unified",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
+        
+        config = {
+            'scrollZoom': True,
+            'displayModeBar': True,
+            'editable': True,
+            'toImageButtonOptions': {
+                'format': 'png',
+                'filename': f'{settings["region_choice"]}_{settings["emission_choice"]}_forecast',
+                'height': 600,
+                'width': 1200,
+                'scale': 2
+            }
+        }
+        
+        st.plotly_chart(forecast_fig, use_container_width=True, config=config)
+        
+        # Display data table
+        st.markdown("""
+        <div class="content-card" style="margin-top: 30px;">
+            <h3>Forecast Data</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        yearly_data = pd.DataFrame({
+            'Year': forecast_df['Year'].astype(int),
+            f'Forecasted {settings["emission_choice"]}': forecast_df['Forecasted_CO2'].round(2),
+            'Annual % Change': forecast_df['pct_change'].round(2).apply(lambda x: f"{x}%" if not pd.isna(x) else "N/A"),
+            'Cumulative % Change': forecast_df['pct_change_from_last_historical'].round(2).apply(lambda x: f"{x}%")
+        })
+        
+        st.dataframe(
+            yearly_data,
+            column_config={
+                'Year': st.column_config.NumberColumn("Year", format="%d"),
+                f'Forecasted {settings["emission_choice"]}': st.column_config.NumberColumn(f"Forecasted {settings['emission_choice']}", format="%.2f"),
+                'Annual % Change': st.column_config.TextColumn("Annual % Change"),
+                'Cumulative % Change': st.column_config.TextColumn("Cumulative % Change")
+            },
+            hide_index=True,
+            use_container_width=True,
+            height=400
+        )
 
 elif st.session_state.page == "Statistics":
     st.markdown("""
@@ -739,11 +805,11 @@ elif st.session_state.page == "Statistics":
             # Use Streamlit's data editor for a nicer display
             st.dataframe(
                 display_df,
-                hide_index=True,
-                use_container_width=True,
-                height=400
-            )
-            
+               hide_index=True,
+               use_container_width=True,
+               height=400
+           )
+           
         except Exception as e:
             st.error(f"An error occurred while loading or processing the data: {str(e)}")
             st.info("Please ensure the emissions data file is available in the correct location.")
@@ -938,7 +1004,7 @@ elif st.session_state.page == "Statistics":
         except Exception as e:
             st.error(f"An error occurred during trend analysis: {str(e)}")
             st.info("Please check that the data file is available and contains the required columns.")
-    
+   
     with stats_tabs[2]:
         st.markdown("""
         <div class="content-card">
@@ -955,7 +1021,7 @@ elif st.session_state.page == "Statistics":
             breakdown_country = st.selectbox(
                 "Select Country/Region",
                 ["World", "China", "United States", "India", "Russia", "Japan", 
-                 "Germany", "United Kingdom", "Brazil", "Canada", "Australia"],
+                    "Germany", "United Kingdom", "Brazil", "Canada", "Australia"],
                 index=0
             )
         
@@ -1132,10 +1198,10 @@ elif st.session_state.page == "Statistics":
 
 # Add the LLM Integration page
 elif st.session_state.page == "LLM Integration":
-    # Import and display the LLM page
-    try:
-        from llm_integration import display_llm_page
-        display_llm_page()
-    except Exception as e:
-        st.error(f"Error loading the Policy Recommendations page: {str(e)}")
-        st.info("Make sure you've added the llm_integration.py and llm_utils.py files to your project.")
+   # Import and display the LLM page
+   try:
+       from llm_integration import display_llm_page
+       display_llm_page()
+   except Exception as e:
+       st.error(f"Error loading the Policy Recommendations page: {str(e)}")
+       st.info("Make sure you've added the llm_integration.py and llm_utils.py files to your project.")

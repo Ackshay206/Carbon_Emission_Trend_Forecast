@@ -251,6 +251,7 @@ def generate_forecast_summary(forecast_df, metrics, region, emission_type, model
     final_value = forecast_df['Forecasted_CO2'].iloc[-1]
     total_change = metrics['total_pct_change']
     avg_annual_change = metrics['avg_annual_pct_change']
+    forecasted_data = forecast_df[['Year', 'Forecasted_CO2']]
     
     # Create forecast context summary
     forecast_context = {
@@ -263,7 +264,8 @@ def generate_forecast_summary(forecast_df, metrics, region, emission_type, model
         'total_percent_change': total_change,
         'avg_annual_percent_change': avg_annual_change,
         'min_annual_change': metrics['min_annual_pct_change'],
-        'max_annual_change': metrics['max_annual_pct_change']
+        'max_annual_change': metrics['max_annual_pct_change'],
+        'forecasted_data': forecasted_data.to_dict(orient='records')
     }
     
     # Generate detailed prompt for AI summary
@@ -278,14 +280,14 @@ def generate_forecast_summary(forecast_df, metrics, region, emission_type, model
     - Average annual change: {avg_annual_change:.2f}%
     - Range of annual changes: {metrics['min_annual_pct_change']:.2f}% to {metrics['max_annual_pct_change']:.2f}%
     
-    Provide a concise scientific analysis including:
-    1. Main trend interpretation and its significance
-    2. Primary drivers based on historical patterns
-    3. Comparison to global climate targets (Paris Agreement, net-zero goals)
-    4. Key uncertainties and limitations of this forecast
-    5. Major implications for policy and planning
+    Provide a concise scientific analysis of the forecast including:
+    1. Don't talk about the model performance , only the forecasted data and the historical data.
+    2. Main trend interpretation and its significance
+    3. Key uncertainties and limitations of this forecast
+    4. Anamolies where the Historical data forecast changes abruptly, suggest possible causes.
     
-    Format your response in clear markdown with no more than 3-4 paragraphs total.
+    
+    Format your response in clear markdown with no more than 1-2 paragraphs total.
     """
     
     # Call OpenAI API for summary generation with updated syntax
