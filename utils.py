@@ -112,7 +112,7 @@ def load_model(model_choice, emission_choice, region_choice):
         if model_choice in ["ARIMA", "ARIMA+LSTM"]:
             model = joblib.load(model_path)
         elif model_choice in ["LSTM", "GRU"]:
-            model = torch.load(model_path, map_location=torch.device('cpu'))
+            model = torch.load(model_path, map_location=torch.device('cpu'),weights_only=False)
         else:
             raise ValueError(f"Model choice {model_choice} not recognized")
         
