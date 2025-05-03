@@ -493,25 +493,29 @@ if st.session_state.page == "Forecasting":
             <h3 style="margin: 30px 0 15px 0; color: {PRIMARY_COLOR};">💡 Forecast Interpretation</h3>
             """, unsafe_allow_html=True)
             if st.button("Generate AI Analysis", key="generate_ai_analysis", use_container_width=True):
-                with st.spinner("Generating AI forecast analysis..."):
-                    try:
-                        analysis = generate_forecast_summary(
-                            st.session_state.forecast_df, 
-                            st.session_state.forecast_metrics, 
-                            st.session_state.forecast_settings['region_choice'], 
-                            st.session_state.forecast_settings['emission_choice'], 
-                            st.session_state.forecast_settings['model_choice']
-                        )
-                        st.session_state.ai_summary = analysis
-                        st.session_state.show_ai_summary = True
-                    except Exception as e:
-                        st.error(f"Error generating AI analysis: {str(e)}")
+                # Check if API key is available
+                if not ("user_api_key" in st.session_state and st.session_state["user_api_key"]):
+                    st.error("Please provide your OpenAI API key in the sidebar first.")
+                else:
+                    with st.spinner("Generating AI forecast analysis..."):
+                        try:
+                            analysis = generate_forecast_summary(
+                                st.session_state.forecast_df, 
+                                st.session_state.forecast_metrics, 
+                                st.session_state.forecast_settings['region_choice'], 
+                                st.session_state.forecast_settings['emission_choice'], 
+                                st.session_state.forecast_settings['model_type']
+                            )
+                            st.session_state.ai_summary = analysis
+                            st.session_state.show_ai_summary = True
+                        except Exception as e:
+                            st.error(f"Error generating AI analysis: {str(e)}")
 
         with interpretation_cols[1]:
             if st.session_state.show_ai_summary and st.session_state.ai_summary:
                 with st.expander("View AI Analysis", expanded=True):
                     st.markdown(f"""
-                    <div class="markdown-text style="color: {TEXT_COLOR} !important;">
+                    <div class="markdown-text" style="color: {TEXT_COLOR} !important;">
                     {st.session_state.ai_summary}
                     </div>
                     """, unsafe_allow_html=True)
