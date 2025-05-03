@@ -504,7 +504,7 @@ if st.session_state.page == "Forecasting":
                                 st.session_state.forecast_metrics, 
                                 st.session_state.forecast_settings['region_choice'], 
                                 st.session_state.forecast_settings['emission_choice'], 
-                                st.session_state.forecast_settings['model_type']
+                                st.session_state.forecast_settings['model_choice']
                             )
                             st.session_state.ai_summary = analysis
                             st.session_state.show_ai_summary = True
