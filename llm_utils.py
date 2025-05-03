@@ -13,9 +13,6 @@ import streamlit as st
 
 load_dotenv()
 
-# Cache for the data to avoid repeated loading
-_data_cache = {}
-
 def get_openai_client():
     """Get OpenAI client using the appropriate API key"""
     # First check if user provided their own key in session state
@@ -31,52 +28,37 @@ def get_openai_client():
 
 def find_project_data_directory():
     """Find the data directory relative to the current file location"""
-    # Get the directory of the current script (utils.py)
+    # Get the directory of the current script
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-
     
     # Construct the path to the data directory
     data_dir = os.path.join(current_dir, "data", "raw_data")
     
-
     print(f"Project root directory: {current_dir}")
     print(f"Data directory: {data_dir}")
     
     return data_dir
+
 def load_emissions_data():
-    """Load and cache the emissions data from CSV"""
-
+    """Load the emissions data from CSV"""
     data_dir = find_project_data_directory()
-    
-    
     data_path = os.path.join(data_dir, "owid-co2-data.csv")
-    if 'emissions_df' not in _data_cache:
-        # Try to find the data file
-        try:
-            # Try current directory first
-            if data_path:
-                _data_cache['emissions_df'] = pd.read_csv(data_path)
-            # Then try project structure
-            elif os.path.exists('../data/raw_data/owid-co2-data.csv'):
-                _data_cache['emissions_df'] = pd.read_csv('../data/raw_data/owid-co2-data.csv')
-            else:
-                # Last resort, try different variations
-                _data_cache['emissions_df'] = pd.read_csv('owid-co2-data.csv')
-        except FileNotFoundError:
-            raise FileNotFoundError("Could not find the emissions data file. Please ensure it's available.")
     
-    return _data_cache['emissions_df'].copy()
-# Configure OpenAI client
-
-
-
+    try:
+        # Try current directory first
+        if os.path.exists(data_path):
+            return pd.read_csv(data_path)
+        # Then try project structure
+        elif os.path.exists('../data/raw_data/owid-co2-data.csv'):
+            return pd.read_csv('../data/raw_data/owid-co2-data.csv')
+        else:
+            # Last resort, try current directory
+            return pd.read_csv('owid-co2-data.csv')
+    except FileNotFoundError:
+        raise FileNotFoundError("Could not find the emissions data file. Please ensure it's available.")
 
 def generate_policy_recommendations(region, reduction_target, target_year, forecast_data, metrics):
-    """
-    Generate policy recommendations using OpenAI API
-    """
-
+    """Generate policy recommendations using OpenAI API"""
     client = get_openai_client()
 
     # Get current emissions (start of forecast)
@@ -95,7 +77,6 @@ def generate_policy_recommendations(region, reduction_target, target_year, forec
     # Load emissions data for sector breakdown
     try:
         emissions_df = load_emissions_data()
-
 
         # Get the latest year data for the region
         region_data = emissions_df[emissions_df['country'] == region].sort_values('year', ascending=False).iloc[0]
@@ -260,9 +241,7 @@ def create_recommendation_chart(trajectories):
     return fig
 
 def generate_forecast_summary(forecast_df, metrics, region, emission_type, model_type):
-    """
-    Generate an AI summary of the forecast results
-    """
+    """Generate an AI summary of the forecast results"""
     client = get_openai_client()
 
     # Extract key forecast metrics

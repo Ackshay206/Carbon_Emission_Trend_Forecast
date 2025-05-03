@@ -6,12 +6,7 @@ import plotly.graph_objs as go
 import os
 from sklearn.preprocessing import MinMaxScaler
 from statsmodels.tsa.arima.model import ARIMA
-import functools
-import hashlib
 import torch.nn as nn
-
-# Cache for loaded data files to avoid redundant disk I/O
-_data_cache = {}
 
 class LSTMModel(nn.Module):
     def __init__(self, input_size=1, hidden_size=64, num_layers=2, dropout=0.2):
@@ -80,26 +75,11 @@ class GRUModel(nn.Module):
         return out.squeeze()
 
 def get_data(data_path):
-    """Load data from CSV file with caching"""
-    if data_path not in _data_cache:
-        _data_cache[data_path] = pd.read_csv(data_path)
-    return _data_cache[data_path].copy()  # Return a copy to avoid modifying cached data
-
-# Define model loading with caching
-# Cache for loaded models
-_model_cache = {}
+    """Load data from CSV file"""
+    return pd.read_csv(data_path)
 
 def load_model(model_choice, emission_choice, region_choice):
-    """Load machine learning model with caching to avoid redundant disk I/O"""
-
-    
-    # Create a cache key from the parameters
-    cache_key = f"{model_choice}_{emission_choice}_{region_choice}"
-    
-    # If model is already in cache, return it
-    if cache_key in _model_cache:
-        return _model_cache[cache_key]
-    
+    """Load machine learning model"""
     # Base model path follows the structure provided
     model_base_path = "models"
     
@@ -107,7 +87,7 @@ def load_model(model_choice, emission_choice, region_choice):
     region_dir = region_choice.replace(" ", "_")
     
     # Complete model directory path
-    model_dir = os.path.join(model_base_path, region_dir,emission_choice, model_choice)
+    model_dir = os.path.join(model_base_path, region_dir, emission_choice, model_choice)
     
     # List files in the model directory to get the correct file
     try:
@@ -136,42 +116,27 @@ def load_model(model_choice, emission_choice, region_choice):
         else:
             raise ValueError(f"Model choice {model_choice} not recognized")
         
-        # Store model in cache before returning
-        _model_cache[cache_key] = model
         return model
     
     except Exception as e:
         raise Exception(f"Error loading model: {str(e)}")
-
-# Forecasting future function with result caching
-# Cache for forecast results
-_forecast_cache = {}
 
 def find_project_data_directory():
     """Find the data directory relative to the current file location"""
     # Get the directory of the current script (utils.py)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     
-    
     # Construct the path to the data directory
     data_dir = os.path.join(current_dir, "data", "processed_data")
     
     # Print for debugging
-
     print(f"Project root directory: {current_dir}")
     print(f"Data directory: {data_dir}")
     
     return data_dir
 
 def forecast_future(model_choice, model_data, forecast_years, emission_choice, region_choice):
-    """Generate future forecasts with caching to avoid redundant computations"""
-    # Create a cache key from the parameters
-    cache_key = f"{model_choice}_{emission_choice}_{region_choice}_{forecast_years}"
-    
-    # If forecast is already in cache, return it
-    if cache_key in _forecast_cache:
-        return _forecast_cache[cache_key]
-    
+    """Generate future forecasts"""
     
     # Find the data directory relative to where the script is running
     data_dir = find_project_data_directory()
@@ -185,17 +150,14 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
     data_path = os.path.join(data_dir, file_name)
     print(f"Attempting to load data from: {os.path.abspath(data_path)}")
     try:
-        # Use the caching function to get data
         df = pd.read_csv(data_path)
     except FileNotFoundError:
         # Try alternative path format if the first one fails
-        data_path = os.path.join("data","processed_data",file_name)
+        data_path = os.path.join("data", "processed_data", file_name)
         try:
             df = pd.read_csv(data_path)
         except FileNotFoundError:
-            raise FileNotFoundError(f"Could not find data file for {region_choice}. Tried paths: {os.path.abspath(data_path)} "
-                               f"..\\data\\processed_data\\{region_choice.replace(' ', '_')}.csv and "
-                               f"../data/processed_data/{region_choice.replace(' ', '_')}.csv")
+            raise FileNotFoundError(f"Could not find data file for {region_choice}. Tried paths: {os.path.abspath(data_path)} and data/processed_data/{file_name}")
 
     last_year = df['year'].max()
     future_years = np.arange(last_year + 1, last_year + forecast_years + 1)
@@ -259,7 +221,6 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
 
     elif model_choice == "ARIMA+LSTM":
         # For ARIMA + LSTM, we'll use only the ARIMA part for now
-        # since the hybrid implementation would require both models
         arima_model = model_data
         # Use the log-transformed column for forecasting
         arima_future = arima_model.forecast(steps=forecast_years)
@@ -276,7 +237,6 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
         
         # Calculate percentage changes
         forecast_df['pct_change'] = forecast_df['Forecasted_CO2'].pct_change() * 100
-        # Use the original (non-log) column for comparison
         last_historical_value = df[target_column].iloc[-1]
         forecast_df['pct_change_from_last_historical'] = ((forecast_df['Forecasted_CO2'] - last_historical_value) / last_historical_value) * 100
         
@@ -292,8 +252,7 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
         metrics['max_annual_pct_change'] = forecast_df['pct_change'].max()
 
     else:  # LSTM or GRU model
-        # Prepare data for LSTM/GRU forecasting - use only the original (non-log) column
-        # LSTM models were trained on normalized values of co2 or total_ghg
+        # Prepare data for LSTM/GRU forecasting
         feature_data = df[[target_column]]
         
         # Apply MinMaxScaler exactly as was done during training
@@ -301,7 +260,7 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
         normalized_data = scaler.fit_transform(feature_data)
         
         # Use the same sequence length as during training
-        sequence_length = 10  # Using the same value as in your paste-2.txt
+        sequence_length = 10
         X = []
         for i in range(len(normalized_data) - sequence_length):
             X.append(normalized_data[i:i+sequence_length])
@@ -369,8 +328,4 @@ def forecast_future(model_choice, model_data, forecast_years, emission_choice, r
     fig.add_annotation(x=last_year+2, y=df[target_column].max()*0.9,
                       text="Forecast", showarrow=False, xanchor="left")
     
-    # Store results in cache
-    forecast_result = (forecast_df, fig, metrics)
-    _forecast_cache[cache_key] = forecast_result
-    
-    return forecast_result
+    return (forecast_df, fig, metrics)

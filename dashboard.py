@@ -232,24 +232,10 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# Add caching for session state initialization
-
 def initialize_session_state():
     """Initialize session state variables if they don't exist"""
     if 'page' not in st.session_state:
         st.session_state.page = "Forecasting"
-    if 'last_model_choice' not in st.session_state:
-        st.session_state.last_model_choice = None
-    if 'last_emission_choice' not in st.session_state:
-        st.session_state.last_emission_choice = None
-    if 'last_region_choice' not in st.session_state:
-        st.session_state.last_region_choice = None
-    if 'last_forecast_years' not in st.session_state:
-        st.session_state.last_forecast_years = None
-    if 'cached_forecast_results' not in st.session_state:
-        st.session_state.cached_forecast_results = None
-    if 'last_execution_time' not in st.session_state:
-        st.session_state.last_execution_time = None
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     if 'ai_summary' not in st.session_state:
@@ -305,31 +291,6 @@ with st.sidebar:
          use_container_width=True,
          type="primary" if st.session_state.page == "LLM Integration" else "secondary"):
         navigate_to_llm_integration()
-    
-    # Display caching information if available
-    if st.session_state.last_execution_time is not None:
-        st.markdown("---")
-        st.markdown("### Performance")
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-value">{st.session_state.last_execution_time:.2f}s</div>
-            <div class="metric-label">Last Execution Time</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Add a button to clear the cache
-        if st.button("Clear Cache", use_container_width=True):
-            # Reset session state variables
-            st.session_state.last_model_choice = None
-            st.session_state.last_emission_choice = None
-            st.session_state.last_region_choice = None
-            st.session_state.last_forecast_years = None
-            st.session_state.cached_forecast_results = None
-            st.session_state.last_execution_time = None
-            st.session_state.ai_summary = None
-            st.session_state.show_ai_summary = False
-            st.success("Cache cleared successfully!")
-            st.experimental_rerun()
 
 # Main dashboard area
 st.title("🌎 Carbon Emission Forecasting Dashboard")
@@ -338,323 +299,228 @@ st.markdown("---")
 # Display the selected page
 if st.session_state.page == "Forecasting":
     
-    # Check if forecast already exists
-    has_forecast = (st.session_state.cached_forecast_results is not None)
-    
     # Create a two-column layout with settings and content
-    if not has_forecast:
-        # If no forecast yet, show welcome message and settings side by side
-        col1, col2 = st.columns([3, 2])
-        
-        with col1:
-            # Welcome message
-            st.markdown("""
-            <div class="welcome-card">
-                <h2>Welcome to the Carbon Emissions Forecasting Tool</h2>
-                <p>
-                    This interactive dashboard allows you to generate forecasts for future carbon emissions 
-                    using various machine learning models.
-                </p>
-                <div style="max-width: 600px; margin: 0 auto;">
-                    <h3>Getting Started:</h3>
-                    <ol>
-                        <li>Select a <strong>model type</strong> from the dropdown menu</li>
-                        <li>Choose the <strong>emission type</strong> you want to forecast</li>
-                        <li>Select a <strong>region</strong> for the forecast</li>
-                        <li>Set the <strong>forecast horizon</strong> in years</li>
-                        <li>Click the <strong>Generate Forecast</strong> button to view results</li>
-                    </ol>
-                </div>
-                <div class="tip-box">
-                    <strong>💡 Tip:</strong> For most accurate results, ARIMA models are recommended for short-term forecasts, while neural network models (LSTM, GRU) may provide better long-term predictions.
-                </div>
+    col1, col2 = st.columns([3, 2])
+    
+    with col1:
+        # Welcome message
+        st.markdown("""
+        <div class="welcome-card">
+            <h2>Welcome to the Carbon Emissions Forecasting Tool</h2>
+            <p>
+                This interactive dashboard allows you to generate forecasts for future carbon emissions 
+                using various machine learning models.
+            </p>
+            <div style="max-width: 600px; margin: 0 auto;">
+                <h3>Getting Started:</h3>
+                <ol>
+                    <li>Select a <strong>model type</strong> from the dropdown menu</li>
+                    <li>Choose the <strong>emission type</strong> you want to forecast</li>
+                    <li>Select a <strong>region</strong> for the forecast</li>
+                    <li>Set the <strong>forecast horizon</strong> in years</li>
+                    <li>Click the <strong>Generate Forecast</strong> button to view results</li>
+                </ol>
             </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            # Forecast settings
-            st.markdown("""
-            <div class="settings-card">
-                <h3>Forecast Settings</h3>
+            <div class="tip-box">
+                <strong>💡 Tip:</strong> For most accurate results, ARIMA models are recommended for short-term forecasts, while neural network models (LSTM, GRU) may provide better long-term predictions.
             </div>
-            """, unsafe_allow_html=True)
-            
-            model_choice = st.selectbox("Choose Model", ["LSTM", "GRU", "ARIMA", "ARIMA+LSTM"])
-            emission_choice = st.selectbox("Emission Type", ["CO2", "GHG"])
-            region_choice = st.selectbox("Region", ["United states", "World"])
-            years_to_forecast = st.number_input("Forecast Horizon (years)", 
-                                              min_value=1, max_value=100, value=10, step=1)
-            
-            generate_button = st.button("Generate Forecast", use_container_width=True)
-    else:
-        # If there's already a forecast, show settings at the top
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        # Forecast settings
         st.markdown("""
         <div class="settings-card">
             <h3>Forecast Settings</h3>
         </div>
         """, unsafe_allow_html=True)
         
-        col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+        model_choice = st.selectbox("Choose Model", ["LSTM", "GRU", "ARIMA", "ARIMA+LSTM"])
+        emission_choice = st.selectbox("Emission Type", ["CO2", "GHG"])
+        region_choice = st.selectbox("Region", ["United states", "World"])
+        years_to_forecast = st.number_input("Forecast Horizon (years)", 
+                                          min_value=1, max_value=100, value=10, step=1)
         
-        with col1:
-            model_choice = st.selectbox("Model", ["LSTM", "GRU", "ARIMA", "ARIMA+LSTM"], 
-                                        index=["LSTM", "GRU", "ARIMA", "ARIMA+LSTM"].index(st.session_state.last_model_choice))
-        with col2:
-            emission_choice = st.selectbox("Emission Type", ["CO2", "GHG"],
-                                          index=["CO2", "GHG"].index(st.session_state.last_emission_choice))
-        with col3:
-            region_choice = st.selectbox("Region", ["United states", "World"],
-                                        index=["United states", "World"].index(st.session_state.last_region_choice))
-        with col4:
-            years_to_forecast = st.number_input("Forecast Horizon", 
-                                              min_value=1, max_value=100, value=st.session_state.last_forecast_years, step=1)
-        with col5:
-            generate_button = st.button("Update Forecast", use_container_width=True)
+        generate_button = st.button("Generate Forecast", use_container_width=True)
     
     # Handle forecast generation
-    if generate_button or has_forecast:
-        # Use existing forecast if no button press but we have cached results
-        if not generate_button and has_forecast:
-            model_choice = st.session_state.last_model_choice
-            emission_choice = st.session_state.last_emission_choice
-            region_choice = st.session_state.last_region_choice
-            years_to_forecast = st.session_state.last_forecast_years
-        
-        # Check if we've already computed this exact forecast
-        same_parameters = (
-            st.session_state.last_model_choice == model_choice and
-            st.session_state.last_emission_choice == emission_choice and
-            st.session_state.last_region_choice == region_choice and
-            st.session_state.last_forecast_years == years_to_forecast and
-            st.session_state.cached_forecast_results is not None
-        )
-        
-        if same_parameters and not generate_button:
-            # Use cached results (silently)
-            forecast_df, forecast_fig, metrics = st.session_state.cached_forecast_results
-        elif same_parameters and generate_button:
-            # Use cached results (with notification)
-            forecast_df, forecast_fig, metrics = st.session_state.cached_forecast_results
-            st.markdown(f"""
-            <div class="success-box">
-                <strong>⚡ Retrieved cached forecast in {st.session_state.last_execution_time:.2f} seconds</strong>
-            </div>
-            """, unsafe_allow_html=True)
-        elif generate_button:
-            # Generate new forecast
-            with st.spinner('Loading model and generating forecast...'):
-                try:
-                    start_time = time.time()
-
-                    
-                                
-                    # Load the selected model
-                    model_data = load_model(model_choice, emission_choice, region_choice)
-                    
-                    # Generate forecast
-                    forecast_df, forecast_fig, metrics = forecast_future(
-                        model_choice, model_data, years_to_forecast, emission_choice, region_choice
-                    )
-                    
-                    # Calculate execution time
-                    execution_time = time.time() - start_time
-                    st.session_state.last_execution_time = execution_time
-                    
-                    # Store results and parameters in session state
-                    st.session_state.cached_forecast_results = (forecast_df, forecast_fig, metrics)
-                    st.session_state.last_model_choice = model_choice
-                    st.session_state.last_emission_choice = emission_choice
-                    st.session_state.last_region_choice = region_choice
-                    st.session_state.last_forecast_years = years_to_forecast
-                    st.session_state.ai_summary = None  # Clear previous AI summary when new forecast is generated
-                    st.session_state.show_ai_summary = False
-                    
+    if generate_button:
+        with st.spinner('Loading model and generating forecast...'):
+            try:
+                start_time = time.time()
+                
+                # Load the selected model
+                model_data = load_model(model_choice, emission_choice, region_choice)
+                
+                # Generate forecast
+                forecast_df, forecast_fig, metrics = forecast_future(
+                    model_choice, model_data, years_to_forecast, emission_choice, region_choice
+                )
+                
+                # Calculate execution time
+                execution_time = time.time() - start_time
+                
+                st.session_state.ai_summary = None  # Clear previous AI summary when new forecast is generated
+                st.session_state.show_ai_summary = False
+                
+                st.markdown(f"""
+                <div class="success-box">
+                    <strong>✅ Generated forecast in {execution_time:.2f} seconds</strong>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Display the forecast header
+                st.markdown(f"""
+                <div class="content-card">
+                    <h2>Forecasted {emission_choice} Emissions for {region_choice}</h2>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Display metrics
+                st.markdown("""
+                <div class="content-card">
+                    <h3>Summary Metrics</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                metric_cols = st.columns(4)
+                with metric_cols[0]:
                     st.markdown(f"""
-                    <div class="success-box">
-                        <strong>✅ Generated forecast in {execution_time:.2f} seconds</strong>
+                    <div class="metric-card">
+                        <div class="metric-value">{metrics['avg_annual_pct_change']:.2f}%</div>
+                        <div class="metric-label">Average Annual % Change</div>
                     </div>
                     """, unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"An error occurred during forecasting: {str(e)}")
-                    st.info("Please check that the required model files exist and the data paths are correct.")
-                    st.stop()
-        
-        # Display the forecast header
-        st.markdown(f"""
-        <div class="content-card">
-            <h2>Forecasted {emission_choice} Emissions for {region_choice}</h2>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 1. DISPLAY METRICS FIRST
-        st.markdown("""
-        <div class="content-card">
-            <h3>Summary Metrics</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Display metrics in a nice card layout
-        metric_cols = st.columns(4)
-        with metric_cols[0]:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{metrics['avg_annual_pct_change']:.2f}%</div>
-                <div class="metric-label">Average Annual % Change</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with metric_cols[1]:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{metrics['total_pct_change']:.2f}%</div>
-                <div class="metric-label">Total % Change</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with metric_cols[2]:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{metrics['min_annual_pct_change']:.2f}%</div>
-                <div class="metric-label">Min Annual % Change</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with metric_cols[3]:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{metrics['max_annual_pct_change']:.2f}%</div>
-                <div class="metric-label">Max Annual % Change</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Add interpretation of the forecast
-        interpretation_cols = st.columns([1, 3])
-        with interpretation_cols[0]:
-            st.markdown(f"""
-            <h3 style="margin: 30px 0 15px 0; color: {PRIMARY_COLOR};">💡 Forecast Interpretation</h3>
-            """, unsafe_allow_html=True)
-            # Add AI analysis button
-            if st.button("Generate AI Analysis", key="generate_ai_analysis", use_container_width=True):
-                with st.spinner("Generating AI forecast analysis..."):
-                    try:
-                        # Generate AI summary
-                        analysis = generate_forecast_summary(
-                            forecast_df, 
-                            metrics, 
-                            region_choice, 
-                            emission_choice, 
-                            model_choice
-                        )
-                        st.session_state.ai_summary = analysis
-                        st.session_state.show_ai_summary = True
-                    except Exception as e:
-                        st.error(f"Error generating AI analysis: {str(e)}")
-
-        with interpretation_cols[1]:
-            # Check if we should show AI summary
-            if st.session_state.show_ai_summary and st.session_state.ai_summary:
-                # Create expandable section for AI interpretation
-                with st.expander("View AI Analysis", expanded=True):
-                    # Wrap the markdown content in a div with a class we can target with CSS
+                
+                with metric_cols[1]:
                     st.markdown(f"""
-                    <div class="markdown-text">
-                    {st.session_state.ai_summary}
+                    <div class="metric-card">
+                        <div class="metric-value">{metrics['total_pct_change']:.2f}%</div>
+                        <div class="metric-label">Total % Change</div>
                     </div>
                     """, unsafe_allow_html=True)
-                    
-                    if st.button("Download Analysis", key="download_analysis"):
-                        st.download_button(
-                            label="Download Analysis as Markdown",
-                            data=st.session_state.ai_summary,
-                            file_name=f"{region_choice}_{emission_choice}_forecast_analysis.md",
-                            mime="text/markdown",
-                        )
-            else:
-                # Create expandable section for basic interpretation
-                with st.expander("View Basic Analysis", expanded=True):
-                    # Provide a basic interpretation based on the metrics
-                    if metrics['total_pct_change'] > 0:
-                        trend_description = f"increasing trend with a total increase of {metrics['total_pct_change']:.2f}% over the forecast period"
-                    elif metrics['total_pct_change'] < 0:
-                        trend_description = f"decreasing trend with a total decrease of {abs(metrics['total_pct_change']):.2f}% over the forecast period"
+                
+                with metric_cols[2]:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-value">{metrics['min_annual_pct_change']:.2f}%</div>
+                        <div class="metric-label">Min Annual % Change</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with metric_cols[3]:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-value">{metrics['max_annual_pct_change']:.2f}%</div>
+                        <div class="metric-label">Max Annual % Change</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Add interpretation
+                interpretation_cols = st.columns([1, 3])
+                with interpretation_cols[0]:
+                    st.markdown(f"""
+                    <h3 style="margin: 30px 0 15px 0; color: {PRIMARY_COLOR};">💡 Forecast Interpretation</h3>
+                    """, unsafe_allow_html=True)
+                    if st.button("Generate AI Analysis", key="generate_ai_analysis", use_container_width=True):
+                        with st.spinner("Generating AI forecast analysis..."):
+                            try:
+                                analysis = generate_forecast_summary(
+                                    forecast_df, 
+                                    metrics, 
+                                    region_choice, 
+                                    emission_choice, 
+                                    model_choice
+                                )
+                                st.session_state.ai_summary = analysis
+                                st.session_state.show_ai_summary = True
+                            except Exception as e:
+                                st.error(f"Error generating AI analysis: {str(e)}")
+
+                with interpretation_cols[1]:
+                    if st.session_state.show_ai_summary and st.session_state.ai_summary:
+                        with st.expander("View AI Analysis", expanded=True):
+                            st.markdown(f"""
+                            <div class="markdown-text">
+                            {st.session_state.ai_summary}
+                            </div>
+                            """, unsafe_allow_html=True)
                     else:
-                        trend_description = "relatively stable trend over the forecast period"
-                    
-                    st.write(f"The forecast shows a {trend_description}. The average annual percentage change is {metrics['avg_annual_pct_change']:.2f}%.")
-                    
-                    if model_choice == "ARIMA":
-                        st.write("This forecast was generated using an ARIMA model, which is effective at capturing time series patterns and seasonality in the data.")
-                    elif model_choice == "ARIMA+LSTM":
-                        st.write("This forecast combines the strengths of both ARIMA (for trend and seasonality) and neural networks (for complex patterns).")
-                    elif model_choice in ["LSTM", "GRU"]:
-                        st.write(f"This forecast was generated using a {model_choice} neural network, which excels at learning complex patterns in time series data.")
-        
-        # 2. DISPLAY VISUALIZATION NEXT
-        st.markdown("""
-        <div class="content-card" style="margin-top: 30px;">
-            <h3>Visualization</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Make the plot larger and update the configuration for interactivity
-        forecast_fig.update_layout(
-            height=600,  # Make plot taller
-            width=None,  # Let it scale with the container width
-            hovermode="x unified",  # Show all values at same x position
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            )
-        )
-        
-        # Enable various interactions with the plot
-        config = {
-            'scrollZoom': True,
-            'displayModeBar': True,
-            'editable': True,
-            'toImageButtonOptions': {
-                'format': 'png',
-                'filename': f'{region_choice}_{emission_choice}_forecast',
-                'height': 600,
-                'width': 1200,
-                'scale': 2
-            }
-        }
-        
-        # Display the plot with the enhanced configuration
-        st.plotly_chart(forecast_fig, use_container_width=True, config=config)
-        
-        # 3. DISPLAY DATA TABLE LAST
-        st.markdown("""
-        <div class="content-card" style="margin-top: 30px;">
-            <h3>Forecast Data</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Create a clean table with the most relevant forecast data
-        yearly_data = pd.DataFrame({
-            'Year': forecast_df['Year'].astype(int),
-            f'Forecasted {emission_choice}': forecast_df['Forecasted_CO2'].round(2),
-            'Annual % Change': forecast_df['pct_change'].round(2).apply(lambda x: f"{x}%" if not pd.isna(x) else "N/A"),
-            'Cumulative % Change': forecast_df['pct_change_from_last_historical'].round(2).apply(lambda x: f"{x}%")
-        })
-        
-        # Use Streamlit's data editor for a nicer display
-        st.dataframe(
-            yearly_data,
-            column_config={
-                'Year': st.column_config.NumberColumn("Year", format="%d"),
-                f'Forecasted {emission_choice}': st.column_config.NumberColumn(f"Forecasted {emission_choice}", format="%.2f"),
-                'Annual % Change': st.column_config.TextColumn("Annual % Change"),
-                'Cumulative % Change': st.column_config.TextColumn("Cumulative % Change")
-            },
-            hide_index=True,
-            use_container_width=True,
-            height=400
-        )
+                        with st.expander("View Basic Analysis", expanded=True):
+                            if metrics['total_pct_change'] > 0:
+                                trend_description = f"increasing trend with a total increase of {metrics['total_pct_change']:.2f}% over the forecast period"
+                            elif metrics['total_pct_change'] < 0:
+                                trend_description = f"decreasing trend with a total decrease of {abs(metrics['total_pct_change']):.2f}% over the forecast period"
+                            else:
+                                trend_description = "relatively stable trend over the forecast period"
+                            
+                            st.write(f"The forecast shows a {trend_description}. The average annual percentage change is {metrics['avg_annual_pct_change']:.2f}%.")
+                
+                # Display visualization
+                st.markdown("""
+                <div class="content-card" style="margin-top: 30px;">
+                    <h3>Visualization</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                forecast_fig.update_layout(
+                    height=600,
+                    width=None,
+                    hovermode="x unified",
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                    )
+                )
+                
+                config = {
+                    'scrollZoom': True,
+                    'displayModeBar': True,
+                    'editable': True,
+                    'toImageButtonOptions': {
+                        'format': 'png',
+                        'filename': f'{region_choice}_{emission_choice}_forecast',
+                        'height': 600,
+                        'width': 1200,
+                        'scale': 2
+                    }
+                }
+                
+                st.plotly_chart(forecast_fig, use_container_width=True, config=config)
+                
+                # Display data table
+                st.markdown("""
+                <div class="content-card" style="margin-top: 30px;">
+                    <h3>Forecast Data</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                yearly_data = pd.DataFrame({
+                    'Year': forecast_df['Year'].astype(int),
+                    f'Forecasted {emission_choice}': forecast_df['Forecasted_CO2'].round(2),
+                    'Annual % Change': forecast_df['pct_change'].round(2).apply(lambda x: f"{x}%" if not pd.isna(x) else "N/A"),
+                    'Cumulative % Change': forecast_df['pct_change_from_last_historical'].round(2).apply(lambda x: f"{x}%")
+                })
+                
+                st.dataframe(
+                    yearly_data,
+                    column_config={
+                        'Year': st.column_config.NumberColumn("Year", format="%d"),
+                        f'Forecasted {emission_choice}': st.column_config.NumberColumn(f"Forecasted {emission_choice}", format="%.2f"),
+                        'Annual % Change': st.column_config.TextColumn("Annual % Change"),
+                        'Cumulative % Change': st.column_config.TextColumn("Cumulative % Change")
+                    },
+                    hide_index=True,
+                    use_container_width=True,
+                    height=400
+                )
+                
+            except Exception as e:
+                st.error(f"An error occurred during forecasting: {str(e)}")
+                st.info("Please check that the required model files exist and the data paths are correct.")
 
 elif st.session_state.page == "Statistics":
     st.markdown("""
@@ -712,8 +578,6 @@ elif st.session_state.page == "Statistics":
                 ["Descending", "Ascending"]
             )
         
-        # Load data function (to be implemented using the actual data path in your project)
-        @st.cache_data
         def load_emission_data():
             """Load and prepare the emissions data from the CSV"""
             import pandas as pd
@@ -934,7 +798,7 @@ elif st.session_state.page == "Statistics":
         """, unsafe_allow_html=True)
         
         try:
-            # Load the data (using the cached function)
+            # Load the data
             emissions_df = load_emission_data()
             
             # Map the selected gas type to the corresponding column in the dataset
@@ -1061,7 +925,6 @@ elif st.session_state.page == "Statistics":
                 st.write("You can observe how emissions have changed over time for different countries and regions.")
                 
                 # Add specific insights based on the selected data
-                # (This would need more logic to generate meaningful insights from the actual data patterns)
                 if "World" in countries_for_trends and column_to_use in filtered_df.columns:
                     world_data = filtered_df[filtered_df["country"] == "World"]
                     if not world_data.empty:
@@ -1108,7 +971,7 @@ elif st.session_state.page == "Statistics":
             )
         
         try:
-            # Load the data (using the cached function)
+            # Load the data
             emissions_df = load_emission_data()
             
             # Define source columns and corresponding labels
@@ -1258,20 +1121,6 @@ elif st.session_state.page == "Statistics":
                         # Add comparison to typical patterns if World is selected
                         if breakdown_country == "World":
                             st.write(f"Globally, fossil fuels (coal, oil, and gas) remain the dominant sources of CO₂ emissions, with industrial processes like cement production contributing a smaller portion.")
-                        
-                        # Add specific analysis based on the country
-                        if "coal_co2" in country_data.columns and "gas_co2" in country_data.columns:
-                            coal_value = country_data["coal_co2"].values[0] if not pd.isna(country_data["coal_co2"].values[0]) else 0
-                            gas_value = country_data["gas_co2"].values[0] if not pd.isna(country_data["gas_co2"].values[0]) else 0
-                            
-                            if coal_value > gas_value:
-                                ratio = coal_value / gas_value if gas_value > 0 else float('inf')
-                                if ratio != float('inf'):
-                                    st.write(f"Coal emissions are approximately {ratio:.1f}x higher than natural gas emissions in {breakdown_country}.")
-                            else:
-                                ratio = gas_value / coal_value if coal_value > 0 else float('inf')
-                                if ratio != float('inf'):
-                                    st.write(f"Natural gas emissions are approximately {ratio:.1f}x higher than coal emissions in {breakdown_country}.")
                 else:
                     st.warning(f"No source breakdown data available for {breakdown_country} in {breakdown_year}")
             else:
